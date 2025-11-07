@@ -5,7 +5,7 @@ from statistics import mode
 
 def main():
     runs = 10               # numero di test
-    split = 0.9             # percentuale di dati che vanno nel training
+    split = 0.7             # percentuale di dati che vanno nel training
     
     datasetName = 'wine'
         # [!] Attention: for wine, the first entry is y_i: 
