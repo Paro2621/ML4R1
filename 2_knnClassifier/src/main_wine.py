@@ -1,10 +1,11 @@
 from pandas import read_csv
-import numpy as np
-import math
 from statistics import mode
+import math
+import numpy as np
+import classifier
 
 def main():
-    runs = 10               # numero di test
+    runs = 100               # numero di test
     split = 0.7             # percentuale di dati che vanno nel training
     
     datasetName = 'wine'
@@ -28,12 +29,12 @@ def main():
         accuracy_i = []  # reset for each k
         for i in range(runs):
             data, _ = readData_csv(datasetName) 
-            data = preprocess_nKK(data, format)
+            # data = preprocess_nKK(data, format)
             T_train, Y_train, T_test, Y_test = divide_data(data, split)
 
-            nKK = nKKclassifier(k)
-            nKK.fit(T_train, Y_train)
-            acc = nKK.test(T_test, Y_test)
+            kNNc = classifier.kNN(k)
+            kNNc.fit(T_train, Y_train)
+            acc = kNNc.test(T_test, Y_test)
             accuracy_i.append(acc * 100)
 
         accuracies.append(np.mean(accuracy_i))
@@ -113,102 +114,55 @@ def preprocess_nKK(data, format):
 
         elif ftype == 'cn': # categorical nominal -> 0-1-encoding
             uniques = np.unique(column)
-            onehot = np.zeros((len(column), len(uniques)))
+            zero_one = np.zeros((len(column), len(uniques)))
 
             for k, val in enumerate(uniques):
-                onehot[:, k] = (column == val)
+                zero_one[:, k] = (column == val)
 
-            formattedData.append(onehot)
+            formattedData.append(zero_one)
 
         elif ftype == 'co': # ategorical ordinal -> label encoding
             # TODO: implement function
             pass
 
     formattedData.append(data[:, -1])
-
     return np.column_stack(formattedData)
-    
-
-class nKKclassifier:
-
-    def __init__(self, k):
-        self.k = k
-        self.trained = False 
-
-    def fit(self, X_train, y_train):
-        self.X_train = X_train
-        self.y_train = y_train
-        self.trained = True
-        
-    def predict(self, x_test):
-        k = self.k
-        y_k = [-1 for _ in range(k)]
-        dist_k = [float('inf') for _ in range(k)]
-
-        # Compute distance from x_test to each training sample
-        for x_train, y_train in zip(self.X_train, self.y_train):
-            dist = 0.0
-
-            for a, b in zip(x_test, x_train):
-                diff = float(a) - float(b)
-                dist += diff * diff
-            dist = math.sqrt(dist)
-
-            # Keep the k closest
-            max_idx = dist_k.index(max(dist_k))
-            if dist < dist_k[max_idx]:
-                dist_k[max_idx] = dist
-                y_k[max_idx] = y_train
-
-        return mode(y_k)
-
-    def test(self, X_test, y_test):
-        if not self.trained:
-            print("something went wrong") #raise valueError
-
-        y_predict = []
-        for x_i in X_test:
-            y_predict.append(self.predict(x_i))
-
-        return (np.array(y_test) == np.array(y_predict)).sum()/len(y_test)
 
 if __name__ == '__main__':
     main()
 
-    '''
+'''
     BEFORE NORMALIZATION
-        **Result summary for `{wine}`**  
-        Number of runs: 10  
-
-        | k  | Accuracy (%) | Std. Dev. |
-        |:--:|:-------------:|:---------:|
-        | 1  | 78.889        | 10.482    |
-        | 2  | 72.778        | 7.638     |
-        | 3  | 72.778        | 6.781     |
-        | 4  | 64.444        | 9.027     |
-        | 5  | 63.889        | 8.333     |
-        | 10 | 71.667        | 11.235    |
-        | 15 | 74.444        | 7.115     |
-        | 20 | 73.333        | 9.876     |
-        | 30 | 76.111        | 9.313     |
-        | 40 | 71.111        | 7.778     |
-        | 50 | 72.222        | 11.111    |
+        Result summary for {wine}
+        number of runs: 100
+        k       accuracy        std_dev
+        ———————————————————————————————
+        1       73.741          4.985
+        2       73.222          5.835
+        3       71.704          5.581
+        4       70.889          5.361
+        5       70.704          5.477
+        10      69.130          5.251
+        15      69.093          5.541
+        20      69.852          4.765
+        30      72.093          5.279
+        40      69.759          5.146
+        50      70.500          5.160
 
     AFTER NORMALIZATION
-        **Result summary for `{wine}`**  
-        Number of runs: 10  
-
-        | k  | Accuracy (%) | Std. Dev. |
-        |:--:|:-------------:|:---------:|
-        | 1  | 95.556        | 4.843     |
-        | 2  | 93.333        | 6.479     |
-        | 3  | 96.111        | 2.546     |
-        | 4  | 97.778        | 3.685     |
-        | 5  | 93.889        | 5.800     |
-        | 10 | 97.778        | 3.685     |
-        | 15 | 97.222        | 3.727     |
-        | 20 | 96.667        | 5.092     |
-        | 30 | 97.778        | 2.722     |
-        | 40 | 96.667        | 4.444     |
-        | 50 | 93.889        | 5.241     |
-    '''
+        Result summary for {wine}
+        number of runs: 100
+        k       accuracy        std_dev
+        ———————————————————————————————
+        1       95.019          2.396
+        2       94.833          2.596
+        3       95.778          2.444
+        4       95.981          2.633
+        5       95.833          2.333
+        10      96.556          2.095
+        15      97.074          2.271
+        20      96.648          2.171
+        30      96.704          1.935
+        40      96.074          2.700
+        50      95.111          3.104
+'''
