@@ -21,12 +21,12 @@ from tensorflow.keras.datasets import mnist
 import classifier
 
 def main():
-    runs = 10 # numero di test
+    runs = 1 # numero di test
 
     test_size = 200      # max 10000
-    train_size = 500    # max 60000
+    train_size = 5000    # max 60000
 
-    k_vector = [1, 2, 3, 4, 5] #[1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50]
+    k_vector = [10] #[1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50]
 
     accuracies = []
     stds = []
