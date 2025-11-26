@@ -24,20 +24,24 @@ h = 12
 lperc, hperc = 25, 75
 
 # prepare the model
-import tensorflow.keras as tf_keras
+import keras as tf_keras
 model=tf_keras.Sequential(name='my_network')
 model.add(tf_keras.layers.Dense(h,name='Layer_1',activation='sigmoid',input_shape=(d,)))
 model.add(tf_keras.layers.Dense(c,name='Layer_2',activation='linear')) # if "linear", the activation can be omitted
 
 # store a list of objective/metric values
 msevals = []
-
+originalData = data.copy()
 # K-FOLD CROSS-VALIDATION LOOP
 # perform "kfolds" different trainings each with an independent test subset
 for k in range(kfolds):
   try:
     print(f"=== {k+1} of {kfolds} ===")
+
+    datak = data.copy()
     
+    print(f"Original data are equal to current data: {np.all(originalData==datak)}")
+
     # splitting data by selecting appropriate indexes
     # test set is the subset from idxmin (including) to idxtop (excluding)
     # compute indexes first, then use them to select test subset
@@ -45,13 +49,13 @@ for k in range(kfolds):
     idxtop = int(1.*n*(k+1)/kfolds)
     n_test = idxtop-idxmin
     print(f"{idxmin} {idxtop}")
-    X_test = data[idxmin:idxtop,:d]
-    Y_test = data[idxmin:idxtop,-c:]
+    X_test = datak[idxmin:idxtop,:d]
+    Y_test = datak[idxmin:idxtop,-c:]
     # training set is the data before and after the test subset
     # again compute indexes first, then use them to select training subset
     idxtrain = list(range(idxmin))+list(range(idxtop,n))
-    X_train = data[idxtrain,:d]
-    Y_train = data[idxtrain,-c:]
+    X_train = datak[idxtrain,:d]
+    Y_train = datak[idxtrain,-c:]
 
     # normalise your data
     # NOTE we are also normalising targets to make it easier to train for regression and
@@ -79,7 +83,7 @@ for k in range(kfolds):
       # TRAINING
       # to start training it is necessary to "compile" first
       model.compile(optimizer='adam', loss=tf_keras.losses.MeanSquaredError())
-      model.fit(X_train, Y_train, batch_size=100, validation_split=.1, epochs=num_epochs)
+      model.fit(X_train, Y_train, batch_size=100, verbose = 0, validation_split=.1, epochs=num_epochs)
 
       # CROSS-VALIDATION
       # estimate performance index (loss or other metric) on the test set

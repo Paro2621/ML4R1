@@ -6,122 +6,107 @@ import numpy as np
 class ML3(k.Model):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.dense1 = k.layers.Dense(12, activation="sigmoid", input_shape=(16,))
-        self.dense2 = k.layers.Dense(2, activation="linear")
+        self.first = k.layers.Dense(12, activation="sigmoid", input_shape=(16,))
+        # self.dense1 = k.layers.Dense(8, activation="relu")
+        self.last = k.layers.Dense(2, activation="linear")
 
     def call(self, inputs):
-        x = self.dense1(inputs)
-        return self.dense2(x)
+        x = self.first(inputs)
+        # x = self.dense1(x)
+        # ricordati di connettere i layer interni
+        return self.last(x)
     
     def get_config(self):
         config = super().get_config()
         # [!] se passi argomenti custom nell'initializer ricordati di inserirli qui !!!
         return config
 
+def split_normalize(data, numFolds, currentFold):
+    dpf = data.shape[0]/numFolds # data per fold
+
+    idx_0 = int(currentFold*dpf)
+    idx_f = int((currentFold+1)*dpf)
+
+    print(f"{idx_0} -> {idx_f}")
+
+    idx_test = range(idx_0,idx_f)
+    idx_train = list(range(idx_0)) + list(range(idx_f,data.shape[0]))
+
+    nc = data.shape[1]
+    for i in range(nc):
+        col_train = data[idx_train, i]
+
+        minval = col_train.min()
+        maxval = col_train.max()
+
+        if maxval == minval:
+            data[:, i] = 0.0
+        else:
+            data[:, i] = (data[:, i] - minval) / (maxval - minval)
+
+    X_train = data[idx_train, :16].astype(float)
+    Y_train = data[idx_train, -2:].astype(float)
+
+    X_test = data[idx_test, :16].astype(float)
+    Y_test = data[idx_test, -2:].astype(float)
+
+    return [X_train, Y_train, X_test, Y_test]
+
 def main():
     # step 1: dataset preparation
     data, _ = readData_csv('data')
     data = data[np.random.permutation(data.shape[0]), :]
     
-    # step 2: parameters for training algorithm
+    # step 2: parameters
     numFolds = 5
     numTrials = 5
     numEpochs = 15
-
     batchSize = 100
+    verb = 0
 
-    # optional parameters
-    verb = 1
-        # 0 = no output, 1 = progress bar, 2 = one-line per epoch
-
-    # set up evaluation parameters
-    msevals = []            # store a list of objective/metric values
-    lperc, hperc = 25, 75   # (range of percentiles to be used in final reporting)
-        
-    # initialize the model
-    model = ML3()
-
-    msebest = None
-    best_model = None
+    msevals = []            
+    lperc, hperc = 25, 75   
 
     for i in range(numFolds):
         print(f"FOLD {i+1}/{numFolds}")
-        
-        fr = len(data)/numFolds # fold ratio 
-        idx_0 = math.ceil(i*fr)
-        idx_f = math.floor((i+1)*fr)
 
-        idx_test = range(idx_0,idx_f)
-        idx_train = list(range(idx_0))+list(range(idx_f,len(data)))
+        fold_mse_best = None 
 
-        data_train = normalize_data(data[idx_train, :])
-        data_test = normalize_data(data[idx_test, :])
-
-        X_train_i = data_train[idx_train, :-2]
-        Y_train_i = data_train[idx_train, -2:]
-
-        X_test_i = data_test[idx_test, :-2]
-        Y_test_i = data_test[idx_test, -2:]
-
-        # MULTI-START TRAINING LOOP
-        # perform training "numTrials" times on the same training/test split,
-        # starting from different initialisations, and keep the best loss/metric value
+        [X_train_i, Y_train_i, X_test_i, Y_test_i] = split_normalize(data.copy(), numFolds, i)
+     
         for trial in range(numTrials):
-            model.name = f"ML3_{trial+1}" 
-                # trial parte da zero ma io voglio che il primo modello si chiami ML3_1
+            # initialize the model
+            model = ML3()
 
-            # TRAINING
+            model.name = f"ML3_F{i+1}T{trial+1}" 
+
             print(f"training start {trial+1}/{numTrials}")
-            # to start training it is necessary to "compile" first
             model.compile(optimizer = 'adam', loss = k.losses.MeanSquaredError())
             model.fit(X_train_i, Y_train_i, verbose = verb, batch_size = batchSize, validation_split = .1, epochs = numEpochs)
-            print(f"training complete {trial+1}/{numTrials}")
-
-            # CROSS-VALIDATION
-            print("--validation--")
-            # estimate performance index (loss or other metric) on the test set
+            
+            # EVALUATION
             Y_pred = model.predict(X_test_i, verbose = verb)
-
             mse = ((Y_pred - Y_test_i)**2).sum()/(len(Y_pred)*2)
             
-            if msebest is None or msebest > mse:
-                msebest = mse
-                model.save('tmp/best.keras')
+            # Update fold best
+            if fold_mse_best is None or mse < fold_mse_best:
+                fold_mse_best = mse
             
-            # reset model to new initial state for the next iteration
-            model = k.models.clone_model(model)
+            # Reset model
+            del model
 
-        # add the best test value to the list
-        msevals.append(msebest)
+        msevals.append(fold_mse_best)
 
-    best_model = k.models.load_model('tmp/best.keras', custom_objects={'ML3': ML3})
     msevals = np.array(msevals, dtype=float)
-    print(msevals)
+    
+    # Print results
+    print(msevals) 
     print("")
 
-    # use collected values to compute median and percentiles
-    # the median will be the estimated performance
-    # the interval [25th, 75th] will be the range where the performance
-    # occurs half of the time
     if len(msevals)>0:
         low, med, high = np.percentile(msevals, (lperc, 50, hperc))
         print(f"mse = {med:.3E} (typical)\nmse in [{low:.3E}, {high:.3E}] with probability >= {(hperc-lperc)/100.:.2f}")
-        print(f"\nbest model\n\tname = {best_model.name}\n\tmse = {msebest:.3E}")
-
-def normalize_data(data):
-    nr, nc = data.shape
-    for i in range(nc):
-        col = data[:, i]
-        minval = col.min()
-        maxval = col.max()
-
-        if maxval == minval:
-            data[:, i] = 0.0
-        else:
-            data[:, i] = (col - minval) / (maxval - minval)
-
-    return data
-            
+         
 def isNaN(x):
     if isinstance(x, str):
         return x.lower() == 'nan'
@@ -152,11 +137,15 @@ if __name__ == '__main__':
     main()
 
 '''
-[0.08853957 0.00082806 0.01135375 0.00203993 0.27105985]
-mse = 1.135E-02 (typical)
-mse in [8.854E-02, 2.040E-03] with probability >= 0.50
+[0.08700113 0.00237802 0.00067161 0.00037403 0.49639787]
+mse = 2.378E-03 (typical)
+mse in [8.700E-02, 6.716E-04] with probability >= 0.50
 
-[0.08786808 0.08750053 0.08186375 0.08186375 0.08186375]
-mse = 8.186E-02 (typical)
-mse in [8.186E-02, 8.750E-02] with probability >= 0.50
+[0.08473287 0.08360496 0.0876412  0.08818239 0.08595251]
+mse = 8.595E-02 (typical)
+mse in [8.473E-02, 8.764E-02] with probability >= 0.50
+
+best global model
+        mse = 8.360E-02
+        name: ML3_F2T5
 '''
