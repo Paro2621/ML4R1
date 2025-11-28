@@ -4,21 +4,23 @@ import math
 import numpy as np
 
 class ML3(k.Model):
-    def __init__(self, **kwargs):
+    def __init__(self, h, **kwargs):
         super().__init__(**kwargs)
-        self.first = k.layers.Dense(12, activation="sigmoid", input_shape=(16,))
+        self.h = h  # h deve essere memorizzato in modo tale da poter essere restituito da get_config() 
+        self.first = k.layers.Dense(h, activation="sigmoid", input_shape=(16,))
         # self.dense1 = k.layers.Dense(8, activation="relu")
         self.last = k.layers.Dense(2, activation="linear")
 
     def call(self, inputs):
         x = self.first(inputs)
+        # [!] se passi argomenti custom nell'initializer ricordati di inserirli qui !!!
         # x = self.dense1(x)
-        # ricordati di connettere i layer interni
         return self.last(x)
     
     def get_config(self):
         config = super().get_config()
-        # [!] se passi argomenti custom nell'initializer ricordati di inserirli qui !!!
+        # 2. Add the custom argument to the config
+        config.update({"h": self.h})
         return config
 
 def split_normalize(data, numFolds, currentFold):
@@ -76,7 +78,7 @@ def main():
      
         for trial in range(numTrials):
             # initialize the model
-            model = ML3()
+            model = ML3(12)
 
             model.name = f"ML3_F{i+1}T{trial+1}" 
 
@@ -135,17 +137,3 @@ def readData_csv(dataset):
 
 if __name__ == '__main__':
     main()
-
-'''
-[0.08700113 0.00237802 0.00067161 0.00037403 0.49639787]
-mse = 2.378E-03 (typical)
-mse in [8.700E-02, 6.716E-04] with probability >= 0.50
-
-[0.08473287 0.08360496 0.0876412  0.08818239 0.08595251]
-mse = 8.595E-02 (typical)
-mse in [8.473E-02, 8.764E-02] with probability >= 0.50
-
-best global model
-        mse = 8.360E-02
-        name: ML3_F2T5
-'''
