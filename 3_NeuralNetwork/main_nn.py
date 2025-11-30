@@ -1,15 +1,15 @@
 from pandas import read_csv
-import keras as k
+import keras as ke
 import math
 import numpy as np
 
-class ML3(k.Model):
+class ML3(ke.Model):
     def __init__(self, h, **kwargs):
         super().__init__(**kwargs)
         self.h = h  # h deve essere memorizzato in modo tale da poter essere restituito da get_config() 
-        self.first = k.layers.Dense(h, activation="sigmoid", input_shape=(16,))
-        # self.dense1 = k.layers.Dense(8, activation="relu")
-        self.last = k.layers.Dense(2, activation="linear")
+        self.first = ke.layers.Dense(h, activation="sigmoid")
+        # self.dense1 = ke.layers.Dense(8, activation="relu")
+        self.last = ke.layers.Dense(2, activation="linear")
 
     def call(self, inputs):
         x = self.first(inputs)
@@ -29,7 +29,7 @@ def split_normalize(data, numFolds, currentFold):
     idx_0 = int(currentFold*dpf)
     idx_f = int((currentFold+1)*dpf)
 
-    print(f"{idx_0} -> {idx_f}")
+    # print(f"{idx_0} -> {idx_f}")
 
     idx_test = range(idx_0,idx_f)
     idx_train = list(range(idx_0)) + list(range(idx_f,data.shape[0]))
@@ -65,50 +65,49 @@ def main():
     numEpochs = 15
     batchSize = 100
     verb = 0
-
-    msevals = []            
+          
     lperc, hperc = 25, 75   
 
-    for i in range(numFolds):
-        print(f"FOLD {i+1}/{numFolds}")
+    k_vec = [3, 5, 9, 12, 15]
 
-        fold_mse_best = None 
+    for k in k_vec:
+        msevals = []  
+        for i in range(numFolds):
+            fold_mse_best = None 
 
-        [X_train_i, Y_train_i, X_test_i, Y_test_i] = split_normalize(data.copy(), numFolds, i)
-     
-        for trial in range(numTrials):
-            # initialize the model
-            model = ML3(12)
-
-            model.name = f"ML3_F{i+1}T{trial+1}" 
-
-            print(f"training start {trial+1}/{numTrials}")
-            model.compile(optimizer = 'adam', loss = k.losses.MeanSquaredError())
-            model.fit(X_train_i, Y_train_i, verbose = verb, batch_size = batchSize, validation_split = .1, epochs = numEpochs)
+            [X_train_i, Y_train_i, X_test_i, Y_test_i] = split_normalize(data.copy(), numFolds, i)
             
-            # EVALUATION
-            Y_pred = model.predict(X_test_i, verbose = verb)
-            mse = ((Y_pred - Y_test_i)**2).sum()/(len(Y_pred)*2)
+            for trial in range(numTrials):
+                model = ML3(12)
+
+                model.name = f"K{k}F{i+1}T{trial+1}" 
+                # print(f"k = {k}\t\tFold:{i+1}/{numFolds}\tTrial:{trial+1}/{numTrials}")
+                
+                model.compile(optimizer = 'adam', loss = ke.losses.MeanSquaredError())
+                model.fit(X_train_i, Y_train_i, verbose = verb, batch_size = batchSize, validation_split = .1, epochs = numEpochs)
+                
+                # EVALUATION
+                Y_pred = model.predict(X_test_i, verbose = verb)
+                mse = ((Y_pred - Y_test_i)**2).sum()/(len(Y_pred)*2)
+                
+                # Update fold best
+                if fold_mse_best is None or mse < fold_mse_best:
+                    fold_mse_best = mse
+                
+                # Reset model
+                del model
+
+            msevals.append(fold_mse_best)
+
+        msevals = np.array(msevals, dtype=float)
+        
+        # Print results
+        if len(msevals)>0:
+            print(f"--- Result Summary for k = {k} ---")
+            print(msevals) 
+            low, med, high = np.percentile(msevals, (lperc, 50, hperc))
+            print(f"mse = {med:.3F}% (typical)\naccuracy in [{low:.3F}, {high:.3F}%] with probability >= {(hperc-lperc)/100:.2F}\n")
             
-            # Update fold best
-            if fold_mse_best is None or mse < fold_mse_best:
-                fold_mse_best = mse
-            
-            # Reset model
-            del model
-
-        msevals.append(fold_mse_best)
-
-    msevals = np.array(msevals, dtype=float)
-    
-    # Print results
-    print(msevals) 
-    print("")
-
-    if len(msevals)>0:
-        low, med, high = np.percentile(msevals, (lperc, 50, hperc))
-        print(f"mse = {med:.3E} (typical)\nmse in [{low:.3E}, {high:.3E}] with probability >= {(hperc-lperc)/100.:.2f}")
-         
 def isNaN(x):
     if isinstance(x, str):
         return x.lower() == 'nan'

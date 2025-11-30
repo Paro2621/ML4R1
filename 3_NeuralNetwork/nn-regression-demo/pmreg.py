@@ -1,15 +1,14 @@
 from pandas import read_csv
 import numpy as np
-import copy
 
 # read the data
-dataIn = read_csv('nn-regression-demo/UCI-CBM/data.txt', sep='\s+').values
+data = read_csv('nn-regression-demo/UCI-CBM/data.txt', sep='\s+').values
 c = 2
-d = dataIn.shape[1]-c
-n = dataIn.shape[0]
+d = data.shape[1]-c
+n = data.shape[0]
 
 # permute your data (must be i.i.d. anyway)
-dataIn = dataIn[np.random.permutation(n), :]
+data = data[np.random.permutation(n), :]
 
 # set up algorithm parameters
 kfolds =  5
@@ -38,8 +37,6 @@ msevals = []
 for k in range(kfolds):
   try:
     print(f"=== {k+1} of {kfolds} ===")
-
-    data = copy.deepcopy(dataIn)
     
     # splitting data by selecting appropriate indexes
     # test set is the subset from idxmin (including) to idxtop (excluding)
