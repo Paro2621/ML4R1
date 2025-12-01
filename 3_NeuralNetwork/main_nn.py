@@ -2,6 +2,7 @@ from pandas import read_csv
 import keras as ke
 import math
 import numpy as np
+from copy import deepcopy
 
 class ML3(ke.Model):
     def __init__(self, h, **kwargs):
@@ -75,7 +76,7 @@ def main():
         for i in range(numFolds):
             fold_mse_best = None 
 
-            [X_train_i, Y_train_i, X_test_i, Y_test_i] = split_normalize(data.copy(), numFolds, i)
+            [X_train_i, Y_train_i, X_test_i, Y_test_i] = split_normalize(deepcopy(data), numFolds, i)
             
             for trial in range(numTrials):
                 model = ML3(12)
@@ -106,7 +107,7 @@ def main():
             print(f"--- Result Summary for k = {k} ---")
             print(msevals) 
             low, med, high = np.percentile(msevals, (lperc, 50, hperc))
-            print(f"mse = {med:.3F}% (typical)\naccuracy in [{low:.3F}, {high:.3F}%] with probability >= {(hperc-lperc)/100:.2F}\n")
+            print(f"mse = {med:.3F} (typical)\naccuracy in [{low:.3F}, {high:.3F}] with probability >= {(hperc-lperc)/100:.2F}\n")
             
 def isNaN(x):
     if isinstance(x, str):

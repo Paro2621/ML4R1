@@ -1,6 +1,10 @@
 from pandas import read_csv
 import numpy as np
 
+''' THIS SCRIPT IS MEANT TO RUN in ML4R1_git/3_NeuralNetwork.
+if it does not run 'cd ..' -> 'code .'
+'''
+
 # read the data
 data = read_csv('nn-regression-demo/UCI-CBM/data.txt', sep='\s+').values
 c = 2
