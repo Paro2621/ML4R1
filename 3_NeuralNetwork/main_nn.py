@@ -69,7 +69,7 @@ def main():
           
     lperc, hperc = 25, 75   
 
-    k_vec = [3, 5, 9, 12, 15]
+    k_vec = [12, 15]
 
     for k in k_vec:
         msevals = []  
@@ -79,7 +79,7 @@ def main():
             [X_train_i, Y_train_i, X_test_i, Y_test_i] = split_normalize(deepcopy(data), numFolds, i)
             
             for trial in range(numTrials):
-                model = ML3(12)
+                model = ML3(k)
 
                 model.name = f"K{k}F{i+1}T{trial+1}" 
                 # print(f"k = {k}\t\tFold:{i+1}/{numFolds}\tTrial:{trial+1}/{numTrials}")
