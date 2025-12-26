@@ -90,42 +90,45 @@ def main():
     y_test = y_test[test_idx]
   
     # step 2: parameters
-    verb = 0  
     numEpochs = 15
     batchSize = 100
 
-    k_vec = [2, 4, 8, 12, 15, 30]
+    k_vec = [12] #[2, 4, 8, 12, 15, 30]
 
     for k in k_vec:
         # # ---- kfold parameters ----
         # numFolds = 5
         # numTrials = 5 
+        # verb = 0    
         # lperc, hperc = 25, 75   
         # getPerformances(X_data, y_data, numFolds, numTrials, batchSize, numEpochs, verb, lperc, hperc, k)
 
         model = nn.ML4(k)
         model.compile(optimizer='adam', loss='mse')
-        model.fit(X_data, X_data, verbose=verb, batch_size=batchSize, epochs=numEpochs)
+        model.fit(X_data, X_data, verbose=1, batch_size=batchSize, epochs=numEpochs)
         
         X_reconstructed = model.predict(X_data, verbose=1)
 
         # -------------------------------------------------------------------------
-        # Create the noise mask
-        filter_mask = np.zeros((28, 28))
-        filter_mask[12:21, 12:21] = 1
+        # # Create the noise mask
+        # filter_mask = np.zeros((28, 28))
+        # filter_mask[10:19, 10:19] = 1
+        # filter_mask = filter_mask.flatten()
+
+        # # Add random salt-and-pepper noise to the mask
+        # idx_zeros = np.random.choice(filter_mask.size, size=50, replace=False)
+        # filter_mask[idx_zeros] = 0
+
+        # idx_ones = np.random.choice(filter_mask.size, size=50, replace=False)
+        # filter_mask[idx_ones] = 1
+
+        filter_mask = np.ones((28, 28))
         filter_mask = filter_mask.flatten()
-
-        # Add random salt-and-pepper noise to the mask
-        idx_zeros = np.random.choice(filter_mask.size, size=50, replace=False)
-        filter_mask[idx_zeros] = 0
-
-        idx_ones = np.random.choice(filter_mask.size, size=50, replace=False)
-        filter_mask[idx_ones] = 1
 
         X_test_noisy = applyFilter(deepcopy(X_data), filter_mask)
         # -------------------------------------------------------------------------
 
-        X_reconstructed = model.predict(deepcopy(X_test_noisy), verbose=1)
+        X_reconstructed = model.predict(X_test_noisy, verbose=1)
         mse = np.mean(np.square(X_reconstructed - X_data))
         print(f"mse = {mse}")
         
