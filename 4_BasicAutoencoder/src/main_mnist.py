@@ -1,94 +1,82 @@
 """
-TODO: modificare split_normalize_mnist
-TODO: dataset preparation
 TODO: scrivi mail al prof per riga 82 di main_nn -> assignment 3
 """
 
-import pandas as pd
 import numpy as np
 import keras as ke
 import matplotlib.pyplot as plt
 import math
 
-from statistics import mode
 from tensorflow.keras.datasets import mnist
 from copy import deepcopy
 
 class ML4(ke.Model):
     def __init__(self, h, **kwargs):
         super().__init__(**kwargs)
-        self.first = ke.layers.Dense(784, activation="sigmoid")
-        self.dense1 = ke.layers.Dense(h, activation="sigmoid")
-        self.last = ke.layers.Dense(784, activation="linear")
+        self.h = h
+        # ENCODER: Compress data
+        self.bottleneck = ke.layers.Dense(h, activation="relu")
+        # DECODER: Reconstruct data
+        self.output_layer = ke.layers.Dense(784, activation="sigmoid")
 
     def call(self, inputs):
-        x = self.first(inputs)
-        x = self.dense1(x)
-        return self.last(x)
+        x = self.bottleneck(inputs)
+        return self.output_layer(x)
+    
+    def showPattern(self, input):
+        pattern = np.array(input).reshape(1, -1)
+        return self.output_layer(pattern)
     
     def get_config(self):
         config = super().get_config()
         config.update({"h": self.h})
         return config
 
-def split_normalize_mnist(data, numFolds, currentFold):
-    dpf = data.shape[0]/numFolds # data per fold
+class ML4_deep(ke.Model):
+    def __init__(self, h, **kwargs):
+        super().__init__(**kwargs)
+        self.h = h
+        # ENCODER: Compress data
+        self.encoder_hidden = ke.layers.Dense(128, activation="relu")
+        self.bottleneck = ke.layers.Dense(h, activation="relu")
+        # DECODER: Reconstruct data
+        self.decoder_hidden = ke.layers.Dense(128, activation="relu")
+        self.output_layer = ke.layers.Dense(784, activation="sigmoid")
+
+    def call(self, inputs):
+        x = self.encoder_hidden(inputs)
+        x = self.bottleneck(x)
+        x = self.decoder_hidden(x)
+        return self.output_layer(x)
+    
+    def showPattern(self, input):
+        pattern = np.array(input).reshape(1, -1)
+        x = self.decoder_hidden(pattern)
+        return self.output_layer(x)
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update({"h": self.h})
+        return config
+
+def kFold_mnist(X_data, y_data, numFolds, currentFold):
+    dpf = X_data.shape[0]/numFolds # data per fold
 
     idx_0 = int(currentFold*dpf)
     idx_f = int((currentFold+1)*dpf)
 
-    # print(f"{idx_0} -> {idx_f}")
+    idx_validation = range(idx_0,idx_f)
+    idx_train = list(range(idx_0)) + list(range(idx_f,X_data.shape[0]))
 
-    idx_test = range(idx_0,idx_f)
-    idx_train = list(range(idx_0)) + list(range(idx_f,data.shape[0]))
+    X_train = X_data[idx_train].astype(float)
+    y_train = y_data[idx_train].astype(float)
 
-    nc = data.shape[1]
-    for i in range(nc):
-        col_train = data[idx_train, i]
+    X_validation = X_data[idx_validation].astype(float)
+    y_validation = y_data[idx_validation].astype(float)
 
-        minval = col_train.min()
-        maxval = col_train.max()
+    return [X_train, y_train, X_validation, y_validation]
 
-        if maxval == minval:
-            data[:, i] = 0.0
-        else:
-            data[:, i] = (data[:, i] - minval) / (maxval - minval)
-
-    X_train = data[idx_train, :16].astype(float)
-    Y_train = data[idx_train, -2:].astype(float)
-
-    X_test = data[idx_test, :16].astype(float)
-    Y_test = data[idx_test, -2:].astype(float)
-
-    return [X_train, Y_train, X_test, Y_test]
-
-def isNaN(x):
-    if isinstance(x, str):
-        return x.lower() == 'nan'
-    if isinstance(x, float):
-        return math.isnan(x)
-    return False
-
-def readData_csv(dataset):
-    if dataset == 'data': # puts the output in the last column
-        data = read_csv('data.txt', sep='\s+').to_numpy().astype(float)
-    else:
-        print("Dataset " +str(dataset) + ".txt not in this folder")
-
-    clean_data = [] # data cleaning in case of missing data
-    for row in data:
-        validRow = True
-        for entry in row:
-            if isNaN(entry) or entry == '?':
-                validRow = False
-        if validRow:
-            clean_data.append(row)
-
-    clean_data = np.array(clean_data)
-    noDe = len(data) - len(clean_data) # number of DELETED entries
-    return [clean_data, noDe]
-
-def plotGrid(classes):
+def testPlot(classes):
     (X_train, y_train), (X_test, y_test) = mnist.load_data()
 
     nr = 6
@@ -109,128 +97,147 @@ def plotGrid(classes):
             ax[i,j].imshow(np.reshape(X_train[ixd,:],(28,28)),cmap='Greys')
     plt.show()
 
-def main1():
-    classes = (4, 2)
-
-    (X_train, y_train), (X_test, y_test) = mnist.load_data()
-
-    idx  = np.where(y_train == classes[0] | y_train == classes[1])[0].tolist() # tuple->list
-
-def main2():
+def main():
     # step 1: dataset preparation
     classes = (4, 2)
 
-    (X_train, y_train), (X_test, y_test) = mnist.load_data()
+    (X_data, y_data), (X_test, y_test) = mnist.load_data()
 
-    data_idx = np.where(y_train == classes[0] | y_train == classes[1])[0].tolist() # tuple->list
-    test_idx = np.where(y_test == classes[0] | y_test == classes[1])[0].tolist()
+    data_idx = np.where((y_data == classes[0]) | (y_data == classes[1]))[0]
+    test_idx = np.where((y_test == classes[0]) | (y_test == classes[1]))[0]
 
+    X_data = X_data[data_idx] /255.0
+    X_test = X_test[test_idx] /255.0
+
+    # Flatten images to (N, 784)
+    X_data = X_data.reshape((-1, 784))
+    X_test = X_test.reshape((-1, 784))
+
+    y_data = y_data[data_idx]
+    y_test = y_test[test_idx]
+  
     # step 2: parameters
-    numFolds = 5
-    numTrials = 5
-    numEpochs = 15
+    numFolds = 5        # 5
+    numTrials = 5       # 5
+    numEpochs = 15      # 15
     batchSize = 100
     verb = 0
           
     lperc, hperc = 25, 75   
 
-    k_vec = [12]
+    k_vec = [4, 8, 10, 12, 15]
 
     for k in k_vec:
-        msevals = []  
-        for i in range(numFolds):
-            fold_mse_best = None 
 
-            [X_train_i, y_train_i, X_val_i, y_val_i] = split_normalize_mnist(deepcopy(X_data), deepcopy(y_data), numFolds, i)
-            
-            for trial in range(numTrials):
-                model = ML4(k)
+        # msevals = []  
+        # for i in range(numFolds):
+        #     fold_mse_best = float('inf') 
 
-                model.name = f"K{k}F{i+1}T{trial+1}" 
-                # print(f"k = {k}\t\tFold:{i+1}/{numFolds}\tTrial:{trial+1}/{numTrials}")
-                
-                model.compile(optimizer = 'adam', loss = ke.losses.MeanSquaredError())
-                model.fit(X_train_i, y_train_i, verbose = verb, batch_size = batchSize, validation_split = .1, epochs = numEpochs)
-                
-                # EVALUATION
-                Y_pred = model.predict(X_val_i, verbose = verb)
-                mse = ((Y_pred - y_val_i)**2).sum()/(len(Y_pred)*2)
-                
-                # Update fold best
-                if fold_mse_best is None or mse < fold_mse_best:
-                    fold_mse_best = mse
-                
-                # Reset model
-                del model
+        #     # Ensure kFold_mnist returns X_val_i as images for reconstruction tasks
+        #     [X_train_i, y_train_i, X_val_i, y_val_i] = kFold_mnist(deepcopy(X_data), deepcopy(y_data), numFolds, i)
 
-            msevals.append(fold_mse_best)
+        #     for trial in range(numTrials):
+        #         tf.keras.backend.clear_session() # Clears the graph for the new trial
+               
+        #         model = ML4(k)
+        #         print(f"-- k={k} fold={i}/{numFolds} trial={trial}/{numTrials} --")
+                
+        #         model.compile(optimizer='adam', loss='mse')
+        #         model.fit(X_train_i, X_train_i, verbose=verb, batch_size=batchSize, epochs=numEpochs)
+                
+        #         # EVALUATION: Compare reconstructed image to original image
+        #         X_reconstructed = model.predict(X_val_i, verbose=verb)
+        #         mse = np.mean(np.square(X_reconstructed - X_val_i))
+                
+        #         if mse < fold_mse_best:
+        #             fold_mse_best = mse
+                
+        #         # Reset model
+        #         del model
 
-        msevals = np.array(msevals, dtype=float)
+        #     msevals.append(fold_mse_best)
+
+        # msevals = np.array(msevals, dtype=float)
         
-        # Print results
-        if len(msevals)>0:
-            print(f"--- Result Summary for k = {k} ---")
-            print(msevals) 
-            low, med, high = np.percentile(msevals, (lperc, 50, hperc))
-            print(f"mse = {med:.3F} (typical)\naccuracy in [{low:.3F}, {high:.3F}] with probability >= {(hperc-lperc)/100:.2F}\n")
-            
-def main3():
-    runs = 1 # numero di test
+        # # Print results
+        # if len(msevals)>0:
+        #     print(f"--- Result Summary for k = {k} ---")
+        #     print(msevals) 
+        #     low, med, high = np.percentile(msevals, (lperc, 50, hperc))
+        #     print(f"mse = {med:.3F} (typical)\naccuracy in [{low:.3F}, {high:.3F}] with probability >= {(hperc-lperc)/100:.2F}\n")
 
-    test_size = 200      # max 10000
-    train_size = 5000    # max 60000
+        # Plot
+        model = ML4(k)
+        model.compile(optimizer='adam', loss='mse')
+        model.fit(X_data, X_data, verbose=1, batch_size=batchSize, epochs=numEpochs)
+        
+        X_reconstructed = model.predict(X_data, verbose=1)
 
-    k_vector = [10] #[1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50]
+        # ---- AUTOENCODER PLOT ----
+        nr = 6
+        nc = 3
 
-    accuracies = []
-    stds = []
+        fig1, ax = plt.subplots(nrows=nr, ncols=nc*2, layout="tight", figsize=(8, 10))
+        fig1.suptitle(f"k = {k}", fontsize=16, y=0.98)
 
-    accuracy_i = []
+        idx = 0
+        for i in range(nr):
+            for j in range(nc):
+                # Original Image
+                ax[i, 2*j].set_xticks([])
+                ax[i, 2*j].set_yticks([])
+                ax[i, 2*j].imshow(np.reshape(X_data[idx, :], (28, 28)), cmap='Greys')
+                if i == 0: ax[i, 2*j].set_title("Orig.")
 
-    (T_train, Y_train), (T_test, Y_test) = mnist.load_data()
+                # Reconstructed Image
+                ax[i, 2*j+1].set_xticks([])
+                ax[i, 2*j+1].set_yticks([])
+                ax[i, 2*j+1].imshow(np.reshape(X_reconstructed[idx, :], (28, 28)), cmap='Greys')
+                if i == 0: ax[i, 2*j+1].set_title("Rec.")
 
-    for k in k_vector:
-        accuracy_i = []
-        for _ in range(runs):
-            # Shuffle training data
-            idx = np.arange(60000)
-            np.random.shuffle(idx)
-            T_train_i = T_train[idx]
-            Y_train_i = Y_train[idx]
+                idx += 1
+        
+        # Adjust layout to make room for the suptitle
+        plt.subplots_adjust(top=0.92) 
 
-            # Shuffle test data
-            idx = np.arange(10000)
-            np.random.shuffle(idx)
-            T_test_i = T_test[idx]
-            Y_test_i = Y_test[idx]
+# ---- PATTERN PLOT ----
+        total_plots = k + 1  # Neurons + Null case
+        
+        # Calculate grid size to be as square as possible
+        nc = math.ceil(math.sqrt(total_plots))
+        nr = math.ceil(total_plots / nc)
 
-            # Crop
-            T_train_i = T_train_i[:train_size]
-            Y_train_i = Y_train_i[:train_size]
-            T_test_i  = T_test_i[:test_size]
-            Y_test_i  = Y_test_i[:test_size]
+        fig2, ax = plt.subplots(nrows=nr, ncols=nc, layout="tight", figsize=(8, 10))
+        fig2.suptitle(f"Patterns (k={k})", fontsize=16, y=0.96)
 
-            # Normalizzo train
-            T_train_i = T_train_i.astype(np.float32) / 255.0
-            T_test_i  = T_test_i.astype(np.float32) / 255.0
-            Y_train_i = Y_train_i.astype(np.int32)
-            Y_test_i  = Y_test_i.astype(np.int32)
+        ax_flat = ax.flatten()
 
-            kNN = classifier.kNN(k)
-            kNN.fit(T_train_i, Y_train_i)
+        for p_idx in range(len(ax_flat)):
+            if p_idx < total_plots:
+                patternType = np.zeros(k)
+                
+                if p_idx < k:
+                    # Case: Individual Neurons
+                    patternType[p_idx] = 1.0
+                    title = f"Neuron {p_idx}"
+                else:
+                    # Case: All zeros (Null case)
+                    title = "Null"
 
-            acc = kNN.test(T_test_i, Y_test_i)   # returns vector
-            accuracy_i.append(acc * 100)
+                # Generate and show image
+                pattern_img = model.showPattern(patternType)
+                ax_flat[p_idx].imshow(np.reshape(pattern_img, (28, 28)), cmap='Greys')
+                ax_flat[p_idx].set_title(title, fontsize=10)
+                ax_flat[p_idx].axis('off')
+            else:
+                # Hide any remaining unused subplots in the grid
+                ax_flat[p_idx].axis('off')
 
-        accuracies.append(np.mean(accuracy_i))
-        stds.append(np.std(accuracy_i))
-
-    # --- Risultati  ---
-    print("Result summary for {mnist}\nnumber of runs:\t"+str(runs)+"\ntrain size:\t"+str(train_size)+"\ntest size:\t"+str(test_size))
-    print("k\taccuracy\tstd_dev")
-    print("———————————————————————————————")
-    for k, acc, std in zip(k_vector, accuracies, stds):
-        print(f"{k}\t{acc:.3f}\t\t{std:.3f}")
+        plt.subplots_adjust(top=0.90)
+        
+        # This will open both fig1 and fig2 in separate windows
+        plt.show()
 
 if __name__ == '__main__':
-    main2()
+    main()
+    
