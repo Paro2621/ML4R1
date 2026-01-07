@@ -166,7 +166,7 @@ def main():
         numFolds = 5
         numTrials = 5 
         lperc, hperc = 25, 75   
-        getPerformances(model, X_data, numFolds, numTrials, batchSize, numEpochs, verb, lperc, hperc, k)
+        # getPerformances(model, X_data, numFolds, numTrials, batchSize, numEpochs, verb, lperc, hperc, k)
         
         model.compile(optimizer='adam', loss='mse')
         model.fit(X_data, X_data, verbose=0, batch_size=batchSize, epochs=numEpochs)

@@ -6,7 +6,7 @@ import classifier
 
 def main():
     runs = 100               # numero di test
-    split = 0.7             # percentuale di dati che vanno nel training
+    split = 0.7              # percentuale di dati che vanno nel training
     
     datasetName = 'wine'
         # [!] Attention: for wine, the first entry is y_i: 
@@ -29,7 +29,7 @@ def main():
         accuracy_i = []  # reset for each k
         for i in range(runs):
             data, _ = readData_csv(datasetName) 
-            # data = preprocess_nKK(data, format)
+            data = preprocess_kNN(data, format)
             T_train, Y_train, T_test, Y_test = divide_data(data, split)
 
             kNNc = classifier.kNN(k)
@@ -93,7 +93,7 @@ def divide_data(data, split):
 
     return [T_train, Y_train, T_test, Y_test]
 
-def preprocess_nKK(data, format):
+def preprocess_kNN(data, format):
     formattedData = []
 
     for i in range(data.shape[1]-1):
